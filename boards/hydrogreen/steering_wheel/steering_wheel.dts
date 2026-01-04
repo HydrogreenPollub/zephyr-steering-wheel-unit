@@ -8,69 +8,69 @@
 	model = "Hydrogreen Steering wheel board";
 	compatible = "hydrogreen,steering-wheel";
 
+
 	aliases {
-		ledgreen = &green_led;
-		led-strip = &led_strip;
-		//mcuboot-led0 = &green_led;
-		//pwm-led0 = &green_pwm_led;
-		//button = &user_button;
-		//		watchdog0 = &iwdg;
-		//		die-temp0 = &die_temp;
-		//		volt-sensor0 = &vref;
-		//		volt-sensor1 = &vbat;
+		can-rx-led = &can_rx_led;
+		can = &fdcan2;
+		button-lights-hazard = &button_lights_hazard;
+		button-lights-beam = &button_lights_beam;
+		button-lights-position = &button_lights_position;
+		button-lights-right-indicator = &button_lights_right_indicator;
+		button-lights-left-indicator = &button_lights_left_indicator;
+		watchdog0 = &iwdg;
+		die-temp0 = &die_temp;
+		volt-sensor0 = &vref;
+		volt-sensor1 = &vbat;
 	};
 
 	chosen {
-//		zephyr,console = &lpuart1;
-//		zephyr,shell-uart = &lpuart1;
+		zephyr,console = &usart3;
+		zephyr,shell-uart = &usart3;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
-		zephyr,canbus = &fdcan1;
+		zephyr,canbus = &fdcan2;
 		zephyr,code-partition = &slot0_partition;
 	};
 
 	leds {
 		compatible = "gpio-leds";
-		green_led: led_0 {
-			gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>;
-			label = "User LD2";
+		can_rx_led: led_0 {
+			gpios = <&gpioa 11 GPIO_ACTIVE_HIGH>;
+			label = "CAN Rx LED";
 		};
 	};
 
-	//	leds {
-	//		compatible = "gpio-leds";
-	//		led_1: led_1 {
-	//			gpios = <&gpioa 0 GPIO_ACTIVE_HIGH>;
-	//			label = "A0 pin";
-	//		};
-	//
-	//		led_2: led_2 {
-	//			gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;
-	//			label = "User LD2";
-	//		};
-	//	};
-
-//	pwmleds {
-//		compatible = "pwm-leds";
-//
-//		green_pwm_led: green_pwm_led {
-//			pwms = <&pwm2 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
-//		};
-//	};
-
-//	gpio_keys {
-//		compatible = "gpio-keys";
-//		user_button: button {
-//			label = "User";
-//			gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
-////			zephyr,code = <INPUT_KEY_0>;
-//		};
-//	};
-
-
+	buttons {
+		compatible = "gpio-keys";
+		debounce-interval-ms = <0>;
+		button_lights_hazard: button_pa0 {
+			gpios = <&gpioa 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "hazard lights button";
+		};
+		button_lights_beam: button_pa1 {
+			gpios = <&gpioa 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "beam lights button";
+		};
+		button_lights_position: button_pa2 {
+			gpios = <&gpioa 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "position lights button";
+		};
+		button_lights_right_indicator: button_pa3 {
+			gpios = <&gpioa 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "right indicator lights button";
+		};
+		button_lights_left_indicator: button_pa4 {
+			gpios = <&gpioa 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "left indicator lights button";
+		};
+	};
 };
 
 &gpioa {
+	status = "okay";
+};
+
+&gpiob {
 	status = "okay";
 };
 
@@ -85,6 +85,10 @@
 
 &clk_hse {
 	clock-frequency = <DT_FREQ_M(24)>;
+	status = "okay";
+};
+
+&clk_hsi {
 	status = "okay";
 };
 
@@ -106,12 +110,12 @@
 	apb2-prescaler = <1>;
 };
 
-//&usart1 {
-//	pinctrl-0 = <&usart1_tx_pc4 &usart1_rx_pc5>;
-//	pinctrl-names = "default";
-//	current-speed = <115200>;
-//	status = "okay";
-//};
+&usart3 {
+	pinctrl-0 = <&usart3_tx_pb10 &usart3_rx_pb11>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "okay";
+};
 
 //&lpuart1 {
 //	pinctrl-0 = <&lpuart1_tx_pa2 &lpuart1_rx_pa3>;
@@ -121,42 +125,14 @@
 //	status = "okay";
 //};
 
-&i2c1 {
-	pinctrl-0 = <&i2c1_scl_pb8 &i2c1_sda_pb9>;
-	pinctrl-names = "default";
-	status = "okay";
-};
 
-&spi1 {
-	pinctrl-0 = <&spi1_sck_pa5 &spi1_miso_pa6 &spi1_mosi_pa7>;
-	pinctrl-names = "default";
-	cs-gpios = <&gpiob 6 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-	status = "okay";
 
-	led_strip: ws2812@0 {
-		compatible = "worldsemi,ws2812-spi";
-
-		/* SPI */
-		reg = <0>; /* ignored, but necessary for SPI bindings */
-		spi-max-frequency = <4000000>;
-		frame-format = <32768>; /* SPI_FRAME_FORMAT_TI */
-
-		/* WS2812 */
-		chain-length = <100>; /* arbitrary; change at will */
-		spi-one-frame = <0x70>;
-		spi-zero-frame = <0x40>;
-		color-mapping = <LED_COLOR_ID_GREEN
-						 LED_COLOR_ID_RED
-						 LED_COLOR_ID_BLUE>;
-	};
-};
-
-&spi2 {
-	pinctrl-0 = <&spi2_nss_pb12 &spi2_sck_pb13
-				 &spi2_miso_pb14 &spi2_mosi_pb15>;
-	pinctrl-names = "default";
-	status = "okay";
-};
+//&spi2 {
+//	pinctrl-0 = <&spi2_nss_pb12 &spi2_sck_pb13
+//				 &spi2_miso_pb14 &spi2_mosi_pb15>;
+//	pinctrl-names = "default";
+//	status = "okay";
+//};
 
 //&spi3 {
 //	/* SPI3 on the ST Morpho Connector CN7 pins 17, 1, 2, 3*/
@@ -166,25 +142,25 @@
 //	status = "okay";
 //};
 
-&timers2 {
-	status = "okay";
-
-	pwm2: pwm {
-		status = "okay";
-		pinctrl-0 = <&tim2_ch1_pa5>;
-		pinctrl-names = "default";
-	};
-};
-
-&timers3 {
-	st,prescaler = <10000>;
-	status = "okay";
-	pwm3: pwm {
-		status = "okay";
-		pinctrl-0 = <&tim3_ch1_pb4>;
-		pinctrl-names = "default";
-	};
-};
+//&timers2 {
+//	status = "okay";
+//
+//	pwm2: pwm {
+//		status = "okay";
+//		pinctrl-0 = <&tim2_ch1_pa5>;
+//		pinctrl-names = "default";
+//	};
+//};
+//
+//&timers3 {
+//	st,prescaler = <10000>;
+//	status = "okay";
+//	pwm3: pwm {
+//		status = "okay";
+//		pinctrl-0 = <&tim3_ch1_pb4>;
+//		pinctrl-names = "default";
+//	};
+//};
 
 stm32_lp_tick_source: &lptim1 {
 	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x80000000>,
@@ -232,28 +208,21 @@ stm32_lp_tick_source: &lptim1 {
 	status = "okay";
 };
 
-&adc1 {
-	pinctrl-0 = <&adc1_in1_pa0>;
-	pinctrl-names = "default";
-	st,adc-clock-source = "SYNC";
-	st,adc-prescaler = <4>;
-	status = "okay";
-};
 
 &die_temp {
 	status = "okay";
 };
 
-&dac1 {
-	pinctrl-0 = <&dac1_out1_pa4>;
-	pinctrl-names = "default";
-	status = "okay";
-};
+//&fdcan1 {
+//	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
+//			 <&rcc STM32_SRC_HSE FDCAN_SEL(0)>;
+//	pinctrl-0 = <&fdcan1_rx_pa11 &fdcan1_tx_pa12>;
+//	pinctrl-names = "default";
+//	status = "okay";
+//};
 
-&fdcan1 {
-	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
-			 <&rcc STM32_SRC_HSE FDCAN_SEL(0)>;
-	pinctrl-0 = <&fdcan1_rx_pa11 &fdcan1_tx_pa12>;
+&fdcan2 {
+	pinctrl-0 = <&fdcan2_rx_pb12 &fdcan2_tx_pb13>;
 	pinctrl-names = "default";
 	status = "okay";
 };
@@ -265,4 +234,5 @@ stm32_lp_tick_source: &lptim1 {
 &vbat {
 	status = "okay";
 };
+
 

@@ -12,4 +12,19 @@ endif()
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
-target_sources(app PRIVATE src/main.c)
+
+target_sources(app PRIVATE
+        src/main.c
+        src/steering_wheel.c
+        peripherals/can.c
+        peripherals/gpio.c
+        peripherals/adc.c
+        peripherals/pwm.c
+        peripherals/counter.c
+)
+
+target_include_directories(app PRIVATE
+        peripherals
+        lib-can-definitions
+        src
+)
