@@ -7,12 +7,12 @@
 #include <zephyr/drivers/spi.h>
 #include <zephyr/sys/util.h>
 
+#include "steering_wheel.h"
+
 LOG_MODULE_REGISTER(main);
-
-#define LOG_LEVEL 4
-
 
 int main(void)
 {
+    steering_wheel_init();
     return 0;
 }

@@ -1,7 +1,8 @@
 /dts-v1/;
 #include <st/g4/stm32g491Xe.dtsi>
 #include <st/g4/stm32g491c(c-e)tx-pinctrl.dtsi>
-
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <zephyr/dt-bindings/led/led.h>
 
 / {
@@ -11,12 +12,14 @@
 
 	aliases {
 		can-rx-led = &can_rx_led;
+		can-tx-led = &can_tx_led;
 		can = &fdcan2;
-		button-lights-hazard = &button_lights_hazard;
-		button-lights-beam = &button_lights_beam;
-		button-lights-position = &button_lights_position;
-		button-lights-right-indicator = &button_lights_right_indicator;
-		button-lights-left-indicator = &button_lights_left_indicator;
+		button-emergency = &button_emergency;
+		button-start = &button_start;
+		button-reset = &button_reset;
+		button-lap-time = &button_lap_time;
+		button-deadman = &button_deadman;
+		button-test = &button_test;
 		watchdog0 = &iwdg;
 		die-temp0 = &die_temp;
 		volt-sensor0 = &vref;
@@ -24,44 +27,77 @@
 	};
 
 	chosen {
-		zephyr,console = &usart3;
-		zephyr,shell-uart = &usart3;
+		zephyr,display = &ili9341;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 		zephyr,canbus = &fdcan2;
 		zephyr,code-partition = &slot0_partition;
 	};
+	mipi_dbi {
+		compatible = "zephyr,mipi-dbi-spi";
+		spi-dev = <&spi1>;
+		dc-gpios = <&gpiob 2 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+		write-only;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ili9341: ili9341@0 {
+			compatible = "ilitek,ili9341";
+			mipi-max-frequency = <25000000>;
+			reg = <0>;
+			pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+			rotation = <90>;
+			width = <320>;
+			height = <240>;
+
+		};
+	};
 
 	leds {
 		compatible = "gpio-leds";
-		can_rx_led: led_0 {
-			gpios = <&gpioa 11 GPIO_ACTIVE_HIGH>;
+		can_rx_led: led_pb9 {
+			gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;
 			label = "CAN Rx LED";
+		};
+		can_tx_led: led_pb10 {
+			gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>;
+			label = "CAN Tx LED";
 		};
 	};
 
 	buttons {
 		compatible = "gpio-keys";
 		debounce-interval-ms = <0>;
-		button_lights_hazard: button_pa0 {
+		/* mode1 */
+		button_emergency: button_pa0 {
 			gpios = <&gpioa 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "hazard lights button";
+			label = "emergency button";
 		};
-		button_lights_beam: button_pa1 {
-			gpios = <&gpioa 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "beam lights button";
-		};
-		button_lights_position: button_pa2 {
+		/* supply */
+		button_start: button_pa2 {
 			gpios = <&gpioa 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "position lights button";
+			label = "button start";
 		};
-		button_lights_right_indicator: button_pa3 {
+		/* sc close */
+		button_reset: button_pa3 {
 			gpios = <&gpioa 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "right indicator lights button";
+			label = "reset button";
 		};
-		button_lights_left_indicator: button_pa4 {
-			gpios = <&gpioa 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "left indicator lights button";
+		/* time */
+		button_lap_time: button_pa8 {
+			gpios = <&gpioa 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "lap time reset button";
+		};
+		/* full gas */
+		button_deadman: button_pa9 {
+			gpios = <&gpioa 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "deadman switch";
+		};
+		/* test button - already connected on pcb */
+		button_test: button_pc13 {
+			gpios = <&gpioc 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "test button";
 		};
 	};
 };
@@ -83,64 +119,83 @@
 	status = "okay";
 };
 
-&clk_hse {
-	clock-frequency = <DT_FREQ_M(24)>;
-	status = "okay";
-};
+//&clk_hse {
+//	clock-frequency = <DT_FREQ_M(24)>;
+//	status = "okay";
+//};
 
 &clk_hsi {
+	//	clock-frequency = <DT_FREQ_M(16)>;
 	status = "okay";
 };
 
 &pll {
-	div-m = <6>;
-	mul-n = <85>;
-	div-p = <7>;
+	div-m = <1>;
+	mul-n = <10>;
+	div-p = <2>;
 	div-q = <2>;
 	div-r = <2>;
-	clocks = <&clk_hse>;
+	clocks = <&clk_hsi>;
 	status = "okay";
 };
 
 &rcc {
 	clocks = <&pll>;
-	clock-frequency = <DT_FREQ_M(170)>;
+	clock-frequency = <DT_FREQ_M(80)>;
 	ahb-prescaler = <1>;
 	apb1-prescaler = <1>;
 	apb2-prescaler = <1>;
 };
 
-&usart3 {
-	pinctrl-0 = <&usart3_tx_pb10 &usart3_rx_pb11>;
-	pinctrl-names = "default";
-	current-speed = <115200>;
+// reference manual page 420 (dmamux)
+//&usart1 {
+//	pinctrl-0 = <&usart1_tx_pa9 &usart1_rx_pa10>;
+//	pinctrl-names = "default";
+//	current-speed = <115200>;
+//	status = "okay";
+//	dmas = <&dmamux1 2 25 STM32_DMA_PERIPH_TX>,
+//		   <&dmamux1 1 24 STM32_DMA_PERIPH_RX>;
+//	dma-names = "tx", "rx";
+//};
+
+&dma1 {
 	status = "okay";
 };
 
-//&lpuart1 {
-//	pinctrl-0 = <&lpuart1_tx_pa2 &lpuart1_rx_pa3>;
-//	pinctrl-1 = <&analog_pa2 &analog_pa3>;
-//	pinctrl-names = "default", "sleep";
-//	current-speed = <115200>;
-//	status = "okay";
-//};
+&dmamux1 {
+	status = "okay";
+};
 
 
-
-//&spi2 {
-//	pinctrl-0 = <&spi2_nss_pb12 &spi2_sck_pb13
-//				 &spi2_miso_pb14 &spi2_mosi_pb15>;
-//	pinctrl-names = "default";
-//	status = "okay";
-//};
-
-//&spi3 {
-//	/* SPI3 on the ST Morpho Connector CN7 pins 17, 1, 2, 3*/
-//	pinctrl-0 = <&spi3_nss_pa15 &spi3_sck_pc10
-//				 &spi3_miso_pc11 &spi3_mosi_pc12>;
-//	pinctrl-names = "default";
-//	status = "okay";
-//};
+&spi1 {
+	pinctrl-0 = <&spi1_sck_pa5 &spi1_miso_pa6 &spi1_mosi_pa7>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpiob 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+	status = "okay";
+//
+//	ili9341: display@0 {
+//		compatible = "ilitek,ili9341";
+//		reg = <0>;
+//
+//		spi-max-frequency = <24000000>;
+//		mipi-max-frequency = <24000000>;
+//		mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+//
+//		duplex = <0>;
+//		frame-format = <0>;
+//
+//		width = <240>;
+//		height = <320>;
+//		pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+//
+//		cmd-data-gpios = <&gpiob 2 GPIO_ACTIVE_HIGH>;
+//		reset-gpios = <&gpiob 1 GPIO_ACTIVE_LOW>;
+//
+//		rotation = <90>;
+//		display-inversion;
+//		status = "okay";
+//	};
+};
 
 //&timers2 {
 //	status = "okay";
@@ -175,6 +230,7 @@ stm32_lp_tick_source: &lptim1 {
 };
 
 &flash0 {
+	erase-block-size = <2048>;
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
@@ -182,11 +238,11 @@ stm32_lp_tick_source: &lptim1 {
 
 		boot_partition: partition@0 {
 			label = "mcuboot";
-			reg = <0x00000000 DT_SIZE_K(34)>;
+			reg = <0x00000000 DT_SIZE_K(40)>;
 		};
-		slot0_partition: partition@8800 {
+		slot0_partition: partition@a000 {
 			label = "image-0";
-			reg = <0x00008800 DT_SIZE_K(240)>;
+			reg = <0x0000a000 DT_SIZE_K(234)>;
 		};
 		slot1_partition: partition@44800 {
 			label = "image-1";
@@ -222,6 +278,8 @@ stm32_lp_tick_source: &lptim1 {
 //};
 
 &fdcan2 {
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
+			 <&rcc STM32_SRC_PLL_Q FDCAN_SEL(1)>;
 	pinctrl-0 = <&fdcan2_rx_pb12 &fdcan2_tx_pb13>;
 	pinctrl-names = "default";
 	status = "okay";
@@ -234,5 +292,4 @@ stm32_lp_tick_source: &lptim1 {
 &vbat {
 	status = "okay";
 };
-
 

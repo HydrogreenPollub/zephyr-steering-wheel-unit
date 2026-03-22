@@ -6,7 +6,7 @@ if(NOT DEFINED BOARD)
 endif()
 
 if(NOT DEFINED BOARD_ROOT)
-    set(BOARD_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../ CACHE PATH "Root directory for custom boards")
+    set(BOARD_ROOT . CACHE PATH "Root directory for custom boards")
     message(STATUS "BOARD_ROOT not defined externally, using default: ${BOARD_ROOT}")
 endif()
 
@@ -16,15 +16,22 @@ project(app LANGUAGES C)
 target_sources(app PRIVATE
         src/main.c
         src/steering_wheel.c
+        src/steering_wheel_can.c
         peripherals/can.c
+#        peripherals/can_dfu.c
         peripherals/gpio.c
         peripherals/adc.c
         peripherals/pwm.c
         peripherals/counter.c
+        peripherals/uart.c
+        peripherals/rs485.c
+        peripherals/status_led.c
+        peripherals/test_button.c
+        can-definitions/candef.c
 )
 
 target_include_directories(app PRIVATE
         peripherals
-        lib-can-definitions
+        can-definitions
         src
 )
