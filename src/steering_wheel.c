@@ -6,48 +6,65 @@
 
 LOG_MODULE_REGISTER(steering_wheel_unit);
 
-static lv_obj_t *label_title;
-static lv_obj_t *label_counter;
-static uint32_t seconds;
-
-static void counter_timer_cb(lv_timer_t *timer)
+static void ui_timer_cb(lv_timer_t *timer)
 {
     ARG_UNUSED(timer);
-
-    static char buf[64];
-    seconds++;
-
-    snprintk(buf, sizeof(buf), "Czas pracy: %u s", seconds);
-    lv_label_set_text(label_counter, buf);
-    lv_obj_align(label_counter, LV_ALIGN_CENTER, 0, 30);
+    disp_update_gui();
 }
+
+static void input_cb(struct input_event *evt, void *user_data)
+{
+    ARG_UNUSED(user_data);
+
+    if (evt->type != INPUT_EV_KEY || evt->value != 1) {
+        return;
+    }
+
+	switch (evt->code) {
+	 //case INPUT_KEY_0:
+		//LOG_INF("time reset press");
+		//break;
+    case INPUT_KEY_A:
+		LOG_INF("short press");
+        time_measurement_request = START;
+		break;
+	case INPUT_KEY_X:
+		LOG_INF("long press");
+        time_measurement_request = RESET_;
+    	break;
+	default:
+		break;
+	}
+}
+
+INPUT_CALLBACK_DEFINE(NULL, input_cb, NULL);
+
+
 
 int steering_wheel_init(){
     const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 
     if (!device_is_ready(display_dev)) {
-        printk("Display nie jest gotowy\n");
+        LOG_INF("Display nie jest gotowy");
         return 0;
     }
+	LOG_INF("steering_wheel_init");
 
     display_blanking_off(display_dev);
+	ui_init();
+	lv_timer_create(ui_timer_cb, 100, NULL);
 
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, 0);
-
-    label_title = lv_label_create(lv_scr_act());
-    lv_label_set_text(label_title, "Hydrogreen / Zephyr / LVGL");
-    lv_obj_set_style_text_color(label_title, lv_color_white(), 0);
-    lv_obj_align(label_title, LV_ALIGN_CENTER, 0, -10);
-
-    label_counter = lv_label_create(lv_scr_act());
-    lv_label_set_text(label_counter, "Czas pracy: 0 s");
-    lv_obj_set_style_text_color(label_counter, lv_color_white(), 0);
-    lv_obj_align(label_counter, LV_ALIGN_CENTER, 0, 30);
-
-    lv_timer_create(counter_timer_cb, 1000, NULL);
 
     while (1) {
+
+        if(time_measurement_request == START){
+            next_lap_time_measurement();
+            time_measurement_request = IDLE;
+        }
+        if(time_measurement_request == RESET_){
+            reset_time_measurements();
+            time_measurement_request = IDLE;
+        }
         lv_timer_handler();
         k_msleep(10);
     }

@@ -37,9 +37,9 @@ swu_can_t can = {
     .tx_led = GPIO_DT_SPEC_GET(DT_ALIAS(can_tx_led), gpios),
 };
 
-static void swu_can_tx_callback(const struct device *dev, int error, void *user_data);
+//static void swu_can_tx_callback(const struct device *dev, int error, void *user_data);
 
-static void tx_led_off_handler(struct k_work *work) { gpio_reset(&can.tx_led); }
+//static void tx_led_off_handler(struct k_work *work) { gpio_reset(&can.tx_led); }
 static void rx_led_off_handler(struct k_work *work) { gpio_reset(&can.rx_led); }
 
 static void swu_can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data) {
@@ -113,28 +113,28 @@ static void swu_can_tx_callback(const struct device *dev, int error, void *user_
     k_sem_give(&can_tx_done_sem);
 }
 
-    void swu_can_init(void) {
-        can_init(can.device, HYDROGREEN_CAN_BAUD_RATE);
-        gpio_init(&can.rx_led, GPIO_OUTPUT_INACTIVE);
-        gpio_init(&can.tx_led, GPIO_OUTPUT_INACTIVE);
-        k_work_init_delayable(&tx_led_off_work, tx_led_off_handler);
-        k_work_init_delayable(&rx_led_off_work, rx_led_off_handler);
-        k_work_init_delayable(&bus_off_recovery_work, bus_off_recovery_handler);
+void swu_can_init(void) {
+    can_init(can.device, HYDROGREEN_CAN_BAUD_RATE);
+    gpio_init(&can.rx_led, GPIO_OUTPUT_INACTIVE);
+    //gpio_init(&can.tx_led, GPIO_OUTPUT_INACTIVE);
+    //k_work_init_delayable(&tx_led_off_work, tx_led_off_handler);
+    k_work_init_delayable(&rx_led_off_work, rx_led_off_handler);
+    k_work_init_delayable(&bus_off_recovery_work, bus_off_recovery_handler);
 
-        for(size_t i = 0; i < ARRAY_SIZE(swu_can_filter); i++) {
-            can_add_rx_filter_(can.device, swu_can_rx_callback, &swu_can_filter[i]);
-        }
-        k_tid_t tx_tid = k_thread_create(
-            &swu_can_tx_thread_data, swu_can_tx_thread_stack_area,
-            K_THREAD_STACK_SIZEOF(swu_can_tx_thread_stack_area),
-            swu_can_tx_thread, NULL, NULL, NULL,
-            SWU_CAN_TX_THREAD_PRIORITY, 0, K_NO_WAIT);
-        k_thread_name_set(tx_tid, "can_tx");
-
-        k_tid_t display_tid = k_thread_create(
-            &swu_display_thread_data, swu_display_thread_stack_area,
-            K_THREAD_STACK_SIZEOF(swu_display_thread_stack_area),
-            swu_display_thread, NULL, NULL, NULL,
-            SWU_DISPLAY_THREAD_PRIORITY, 0, K_NO_WAIT);
-        k_thread_name_set(display_tid, "display");
+    for(size_t i = 0; i < ARRAY_SIZE(swu_can_filter); i++) {
+        can_add_rx_filter_(can.device, swu_can_rx_callback, &swu_can_filter[i]);
     }
+    /*k_tid_t tx_tid = k_thread_create(
+        &swu_can_tx_thread_data, swu_can_tx_thread_stack_area,
+        K_THREAD_STACK_SIZEOF(swu_can_tx_thread_stack_area),
+        swu_can_tx_thread, NULL, NULL, NULL,
+        SWU_CAN_TX_THREAD_PRIORITY, 0, K_NO_WAIT);
+    k_thread_name_set(tx_tid, "can_tx");*/
+
+    k_tid_t display_tid = k_thread_create(
+        &swu_display_thread_data, swu_display_thread_stack_area,
+        K_THREAD_STACK_SIZEOF(swu_display_thread_stack_area),
+        swu_display_thread, NULL, NULL, NULL,
+        SWU_DISPLAY_THREAD_PRIORITY, 0, K_NO_WAIT);
+    k_thread_name_set(display_tid, "display");
+}

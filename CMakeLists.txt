@@ -17,6 +17,7 @@ target_sources(app PRIVATE
         src/main.c
         src/steering_wheel.c
         src/steering_wheel_can.c
+        src/steering_wheel_display.c
         peripherals/can.c
 #        peripherals/can_dfu.c
         peripherals/gpio.c
@@ -28,10 +29,14 @@ target_sources(app PRIVATE
         peripherals/status_led.c
         peripherals/test_button.c
         can-definitions/candef.c
+        ui/ui.c
+        ui/screens.c
+        ui/styles.c
 )
 
 target_include_directories(app PRIVATE
         peripherals
         can-definitions
         src
+        ui
 )

@@ -9,12 +9,15 @@
 #include <zephyr/device.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/display.h>
+#include <zephyr/input/input.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <lvgl.h>
 #include "gpio.h"
 #include "can.h"
 #include "can_ids.h"
+#include "ui.h"
+#include "steering_wheel_display.h"
 
-#define DEBOUNCE_MS    20
 
 int steering_wheel_init();
 

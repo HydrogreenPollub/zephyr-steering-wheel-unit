@@ -4,6 +4,7 @@
 #include <zephyr/dt-bindings/display/panel.h>
 #include <zephyr/dt-bindings/mipi_dbi/mipi_dbi.h>
 #include <zephyr/dt-bindings/led/led.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
 	model = "Hydrogreen Steering wheel board";
@@ -41,15 +42,19 @@
 		write-only;
 		#address-cells = <1>;
 		#size-cells = <0>;
+		status = "okay";
 
 		ili9341: ili9341@0 {
 			compatible = "ilitek,ili9341";
-			mipi-max-frequency = <25000000>;
+			mipi-max-frequency = <24000000>;
 			reg = <0>;
 			pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
-			rotation = <90>;
-			width = <320>;
-			height = <240>;
+			//display-inversion;
+			rotation = <270>;
+			width = <240>;
+			height = <320>;
+
+			status = "okay";
 
 		};
 	};
@@ -66,39 +71,53 @@
 		};
 	};
 
-	buttons {
+	buttons: buttons {
 		compatible = "gpio-keys";
-		debounce-interval-ms = <0>;
+		debounce-interval-ms = <30>;
 		/* mode1 */
 		button_emergency: button_pa0 {
 			gpios = <&gpioa 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "emergency button";
+			zephyr,code = <INPUT_KEY_3>;
 		};
 		/* supply */
 		button_start: button_pa2 {
 			gpios = <&gpioa 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "button start";
+			zephyr,code = <INPUT_KEY_2>;
 		};
 		/* sc close */
 		button_reset: button_pa3 {
 			gpios = <&gpioa 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "reset button";
+			zephyr,code = <INPUT_KEY_1>;
 		};
 		/* time */
 		button_lap_time: button_pa8 {
 			gpios = <&gpioa 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "lap time reset button";
+			zephyr,code = <INPUT_KEY_0>;
 		};
 		/* full gas */
 		button_deadman: button_pa9 {
 			gpios = <&gpioa 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "deadman switch";
+			zephyr,code = <INPUT_KEY_4>;
 		};
 		/* test button - already connected on pcb */
 		button_test: button_pc13 {
 			gpios = <&gpioc 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "test button";
+			zephyr,code = <INPUT_KEY_5>;
 		};
+	};
+	longpress {
+		compatible = "zephyr,input-longpress";
+		input = <&buttons>;
+		input-codes = <INPUT_KEY_0>;
+		short-codes = <INPUT_KEY_A>;
+		long-codes = <INPUT_KEY_X>;
+		long-delay-ms = <3000>;
 	};
 };
 
@@ -166,11 +185,15 @@
 	status = "okay";
 };
 
-
 &spi1 {
 	pinctrl-0 = <&spi1_sck_pa5 &spi1_miso_pa6 &spi1_mosi_pa7>;
 	pinctrl-names = "default";
 	cs-gpios = <&gpiob 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+
+	dmas = <&dma1 1 11 (STM32_DMA_PERIPH_TX | STM32_DMA_PRIORITY_HIGH)>,
+		   <&dma1 2 10 (STM32_DMA_PERIPH_RX | STM32_DMA_PRIORITY_HIGH)>;
+	dma-names = "tx", "rx";
+
 	status = "okay";
 //
 //	ili9341: display@0 {
