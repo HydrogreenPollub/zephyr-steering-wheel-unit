@@ -6,12 +6,6 @@
 
 LOG_MODULE_REGISTER(steering_wheel_unit);
 
-static void ui_timer_cb(lv_timer_t *timer)
-{
-    ARG_UNUSED(timer);
-    disp_update_gui();
-}
-
 static void input_cb(struct input_event *evt, void *user_data)
 {
     ARG_UNUSED(user_data);
@@ -41,7 +35,7 @@ INPUT_CALLBACK_DEFINE(NULL, input_cb, NULL);
 
 
 
-int steering_wheel_init(){
+/*int steering_wheel_init(){
     const struct device *display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
 
     if (!device_is_ready(display_dev)) {
@@ -69,5 +63,5 @@ int steering_wheel_init(){
         k_msleep(10);
     }
 
-}
+}*/
 

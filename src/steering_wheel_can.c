@@ -6,22 +6,24 @@
 
 LOG_MODULE_REGISTER(swu_can, LOG_LEVEL_INF);
 
-#define SWU_CAN_TX_THREAD_STACK_SIZE       2048
-#define SWU_CAN_TX_THREAD_PRIORITY         5
-#define SWU_DISPLAY_THREAD_STACK_SIZE      2048
-#define SWU_DISPLAY_THREAD_PRIORITY        5
+#define SWU_CAN_TX_THREAD_STACK_SIZE                   2048
+#define SWU_CAN_TX_THREAD_PRIORITY                     5
+#define SWU_CAN_PROCESS_RX_DATA_THREAD_STACK_SIZE      2048
+#define SWU_CAN_PROCESS_RX_DATA_THREAD_PRIORITY        5
 
 K_THREAD_STACK_DEFINE(swu_can_tx_thread_stack_area, SWU_CAN_TX_THREAD_STACK_SIZE);
-K_THREAD_STACK_DEFINE(swu_display_thread_stack_area, SWU_DISPLAY_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(swu_can_process_rx_data_thread_stack_area, SWU_CAN_PROCESS_RX_DATA_THREAD_STACK_SIZE);
 
 struct k_thread swu_can_tx_thread_data;
-struct k_thread swu_display_thread_data;
+struct k_thread swu_can_process_rx_data_thread_data;
 
-K_SEM_DEFINE(can_tx_done_sem, 0, 1);
-K_MSGQ_DEFINE(can_tx_msgq, sizeof(struct can_frame), 32, 4);
+//K_SEM_DEFINE(can_tx_done_sem, 0, 1);
+//K_MSGQ_DEFINE(can_tx_msgq, sizeof(struct can_frame), 32, 4);
+K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), 32, 4);
+struct k_mutex can_data_mutex;
 
-static volatile int can_tx_result;
-static struct k_work_delayable tx_led_off_work;
+//static volatile int can_tx_result;
+//static struct k_work_delayable tx_led_off_work;
 static struct k_work_delayable rx_led_off_work;
 static struct k_work_delayable bus_off_recovery_work;
 
@@ -51,15 +53,7 @@ static void swu_can_rx_callback(const struct device *dev, struct can_frame *fram
 
     LOG_INF("CAN ID: 0x%03X, Data: %u", frame->id, frame->data[0]);
 
-    switch ((can_id_t)frame->id) {
-        case CAN_ID_BRAKE_PEDAL_VOLTAGE:
-            LOG_INF("BRAKE_PEDAL_VOLTAGE");
-            break;
-        case CAN_ID_BUTTONS_LIGHTS_MASK:
-            break;
-        default:
-            break;
-    }
+    k_msgq_put(&can_rx_msgq, frame, K_NO_WAIT);
 }
 
 static void bus_off_recovery_handler(struct k_work *work) {
@@ -73,7 +67,7 @@ static void bus_off_recovery_handler(struct k_work *work) {
     }
 }
 
-static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
+/*static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
     struct can_frame frame = {0};
     LOG_INF("CAN TX thread started");
 
@@ -101,19 +95,58 @@ static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
     }
 }
 
-static void swu_display_thread(void *p1, void *p2, void *p3) {
-
-    while (1) {
-        k_sleep(K_MSEC(10));
-    }
-}
 
 static void swu_can_tx_callback(const struct device *dev, int error, void *user_data) {
     can_tx_result = error;
     k_sem_give(&can_tx_done_sem);
+}*/
+
+static void process_can_frame(const struct can_frame *frame)
+{
+    switch (frame->id) {
+    case CANDEF_MCU_ANALOG_DRIVE_FRAME_ID: {
+        if (frame->dlc >= 2U) {
+            uint16_t speed = ((uint16_t)frame->data[0] << 8) |
+                              (uint16_t)frame->data[1];
+
+            k_mutex_lock(&can_data_mutex, K_FOREVER);
+            display_data.speed_kph = speed;
+            k_mutex_unlock(&can_data_mutex);
+        }
+        break;
+    }
+
+    case CANDEF_MCU_ANALOG_POWERTRAIN_FRAME_ID: {
+        if (frame->dlc >= 2U) {
+            uint16_t voltage = ((uint16_t)frame->data[0] << 8) |
+                                (uint16_t)frame->data[1];
+
+            k_mutex_lock(&can_data_mutex, K_FOREVER);
+            display_data.sc_voltage = voltage;
+            k_mutex_unlock(&can_data_mutex);
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
 }
 
-void swu_can_init(void) {
+static void swu_can_process_rx_data_thread(void *p1, void *p2, void *p3) {
+    ARG_UNUSED(p1);
+    ARG_UNUSED(p2);
+    ARG_UNUSED(p3);
+
+    struct can_frame frame;
+    while (1) {
+        if (k_msgq_get(&can_rx_msgq, &frame, K_FOREVER) == 0) {
+            process_can_frame(&frame);
+        }
+    }
+}
+
+void swu_can_init() {
     can_init(can.device, HYDROGREEN_CAN_BAUD_RATE);
     gpio_init(&can.rx_led, GPIO_OUTPUT_INACTIVE);
     //gpio_init(&can.tx_led, GPIO_OUTPUT_INACTIVE);
@@ -124,17 +157,20 @@ void swu_can_init(void) {
     for(size_t i = 0; i < ARRAY_SIZE(swu_can_filter); i++) {
         can_add_rx_filter_(can.device, swu_can_rx_callback, &swu_can_filter[i]);
     }
-    /*k_tid_t tx_tid = k_thread_create(
+
+    k_mutex_init(&can_data_mutex);
+
+    /*k_tid_t can_tx_tid = k_thread_create(
         &swu_can_tx_thread_data, swu_can_tx_thread_stack_area,
         K_THREAD_STACK_SIZEOF(swu_can_tx_thread_stack_area),
         swu_can_tx_thread, NULL, NULL, NULL,
         SWU_CAN_TX_THREAD_PRIORITY, 0, K_NO_WAIT);
-    k_thread_name_set(tx_tid, "can_tx");*/
+    k_thread_name_set(can_tx_tid, "can_tx");*/
 
-    k_tid_t display_tid = k_thread_create(
-        &swu_display_thread_data, swu_display_thread_stack_area,
-        K_THREAD_STACK_SIZEOF(swu_display_thread_stack_area),
-        swu_display_thread, NULL, NULL, NULL,
-        SWU_DISPLAY_THREAD_PRIORITY, 0, K_NO_WAIT);
-    k_thread_name_set(display_tid, "display");
+    /*k_tid_t can_process_rx_data_tid = k_thread_create(
+        &swu_can_process_rx_data_thread_data, swu_can_process_rx_data_thread_stack_area,
+        K_THREAD_STACK_SIZEOF(swu_can_process_rx_data_thread_stack_area),
+        swu_can_process_rx_data_thread, NULL, NULL, NULL,
+        SWU_CAN_PROCESS_RX_DATA_THREAD_PRIORITY, 0, K_NO_WAIT);
+    k_thread_name_set(can_process_rx_data_tid, "can_process_rx_data");*/
 }

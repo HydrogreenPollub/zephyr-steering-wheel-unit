@@ -8,6 +8,8 @@
 #include <lvgl.h>
 #include "ui.h"
 #include <zephyr/logging/log.h>
+#include "steering_wheel.h"
+#include "steering_wheel_can.h"
 
 #define MAX_LAPS 50
 
@@ -19,6 +21,7 @@ typedef struct
     uint64_t lap_start_ms;
     uint64_t laps_duration_ms[MAX_LAPS];
     uint64_t lap_duration_ms;
+    bool measurement_running;
 } time_t;
 
 typedef enum
@@ -28,11 +31,20 @@ typedef enum
     RESET_,
 }time_measurement_request_t;
 
+typedef struct
+{
+    uint16_t speed_kph;
+    uint16_t sc_voltage;
+    uint8_t error_msg;
+}display_data_t;
+
+extern display_data_t display_data;
 extern volatile time_measurement_request_t time_measurement_request;
 
 void reset_time_measurements();
 void next_lap_time_measurement();
 void disp_update_gui();
+void swu_display_init();
 
 
 

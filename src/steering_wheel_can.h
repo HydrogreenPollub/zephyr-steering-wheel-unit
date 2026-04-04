@@ -13,6 +13,7 @@
 #include "can.h"
 #include "can_ids.h"
 #include "candef.h"
+#include "steering_wheel_display.h"
 
 typedef struct {
     const struct device *device;
@@ -20,7 +21,9 @@ typedef struct {
     struct gpio_dt_spec rx_led;
 }swu_can_t;
 
+extern struct k_mutex can_data_mutex;
 
+void swu_can_init();
 
 
 #endif //STEERING_WHEEL_CAN_H

@@ -8,11 +8,15 @@
 #include <zephyr/sys/util.h>
 
 #include "steering_wheel.h"
+#include "steering_wheel_display.h"
+#include "steering_wheel_can.h"
 
 LOG_MODULE_REGISTER(main);
 
 int main(void)
 {
-    steering_wheel_init();
+    //steering_wheel_init();
+    swu_display_init();
+    swu_can_init();
     return 0;
 }
