@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13.1)
+cmake_minimum_required(VERSION 3.20.0)
 
 if(NOT DEFINED BOARD)
     set(BOARD steering_wheel CACHE STRING "Zephyr target board")
@@ -6,8 +6,22 @@ if(NOT DEFINED BOARD)
 endif()
 
 if(NOT DEFINED BOARD_ROOT)
-    set(BOARD_ROOT . CACHE PATH "Root directory for custom boards")
+    set(BOARD_ROOT ${CMAKE_CURRENT_SOURCE_DIR} CACHE PATH "Root directory for custom boards")
     message(STATUS "BOARD_ROOT not defined externally, using default: ${BOARD_ROOT}")
+endif()
+
+set(STEERING_VARIANT "hydra" CACHE STRING "Steering wheel hardware variant")
+
+if(STEERING_VARIANT STREQUAL "hydra")
+    set(DTC_OVERLAY_FILE
+            "${CMAKE_CURRENT_SOURCE_DIR}/boards/hydrogreen/steering_wheel/steering_wheel_hydra.overlay"
+    )
+elseif(STEERING_VARIANT STREQUAL "hydros")
+    set(DTC_OVERLAY_FILE
+            "${CMAKE_CURRENT_SOURCE_DIR}/boards/hydrogreen/steering_wheel/steering_wheel_hydros.overlay"
+    )
+else()
+    message(FATAL_ERROR "Unknown STEERING_VARIANT: ${STEERING_VARIANT}")
 endif()
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
@@ -15,7 +29,7 @@ project(app LANGUAGES C)
 
 target_sources(app PRIVATE
         src/main.c
-        src/steering_wheel.c
+        src/steering_wheel_inputs.c
         src/steering_wheel_can.c
         src/steering_wheel_display.c
         peripherals/can.c

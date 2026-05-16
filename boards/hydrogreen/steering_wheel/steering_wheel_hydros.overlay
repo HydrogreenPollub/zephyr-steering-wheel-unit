@@ -1,0 +1,71 @@
+/ {
+	leds {
+		compatible = "gpio-leds";
+
+		can_rx_led: led_pb9 {
+			gpios = <&gpiob 9 GPIO_ACTIVE_HIGH>;
+			label = "CAN Rx LED";
+		};
+
+		can_tx_led: led_pb10 {
+			gpios = <&gpiob 10 GPIO_ACTIVE_HIGH>;
+			label = "CAN Tx LED";
+		};
+	};
+
+	buttons: buttons {
+		compatible = "gpio-keys";
+		debounce-interval-ms = <30>;
+
+		/* mode1 */
+		button_emergency: button_pa0 {
+			gpios = <&gpioa 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "emergency button";
+			zephyr,code = <INPUT_KEY_3>;
+		};
+
+		/* supply */
+		button_start: button_pa2 {
+			gpios = <&gpioa 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "button start";
+			zephyr,code = <INPUT_KEY_2>;
+		};
+
+		/* sc close */
+		button_reset: button_pa3 {
+			gpios = <&gpioa 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "reset button";
+			zephyr,code = <INPUT_KEY_1>;
+		};
+
+		/* time */
+		button_lap_time: button_pa8 {
+			gpios = <&gpioa 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "lap time reset button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+
+		/* full gas */
+		button_deadman: button_pa9 {
+			gpios = <&gpioa 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "deadman switch";
+			zephyr,code = <INPUT_KEY_4>;
+		};
+
+		/* test button - already connected on pcb */
+		button_test: button_pc13 {
+			gpios = <&gpioc 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "test button";
+			zephyr,code = <INPUT_KEY_5>;
+		};
+	};
+
+	longpress {
+		compatible = "zephyr,input-longpress";
+		input = <&buttons>;
+		input-codes = <INPUT_KEY_0>;
+		short-codes = <INPUT_KEY_A>;
+		long-codes = <INPUT_KEY_X>;
+		long-delay-ms = <3000>;
+	};
+};

@@ -1,5 +1,5 @@
 //
-// Created by User on 02.04.2026.
+// Created by Dawid Pisarczyk on 02.04.2026.
 //
 
 #include "steering_wheel_display.h"
@@ -17,23 +17,53 @@ static time_t time = { 0 };
 display_data_t display_data = { 0 };
 volatile time_measurement_request_t time_measurement_request = IDLE;
 
-
-static void format_mmss(char *buf, size_t len, uint64_t ms)
+static const char *mcu_faults_get_message(const struct candef_mcu_faults_t *f)
 {
-    uint32_t total_sec = (uint32_t)(ms / 1000);
-    uint32_t minutes = total_sec / 60;
-    uint32_t seconds = total_sec % 60;
+    if (f->emergency_switch) return "EMERGENCY SWITCH PRESSED";
+    if (f->emergency_dead_mans_switch) return "DEAD MAN";
+    if (f->emergency_leakage_detected) return "H2 LEAKAGE DETECTED";
 
-    snprintf(buf, len, "%02u:%02u", minutes, seconds);
+    if (f->error_fc_v_low) return "FC VOLTAGE TOO LOW";
+    if (f->error_fc_v_high) return "FC VOLTAGE TOO HIGH";
+    if (f->error_fc_c_low) return "FC CURRENT TOO LOW";
+    if (f->error_fc_c_high) return "FC CURRENT TOO HIGH";
+
+    if (f->error_sc_v_low) return "SC VOLTAGE TOO LOW";
+    if (f->error_sc_v_high) return "SC VOLTAGE TOO HIGH";
+    if (f->error_sc_c_low) return "SC CURRENT TOO LOW";
+    if (f->error_sc_c_high) return "SC CURRENT TOO HIGH";
+
+    if (f->error_mc_v_low) return "MC VOLTAGE TOO LOW";
+    if (f->error_mc_v_high) return "MC VOLTAGE TOO HIGH";
+    if (f->error_mc_c_low) return "MC CURRENT TOO LOW";
+    if (f->error_mc_c_high) return "MC CURRENT TOO HIGH";
+
+    if (f->error_ab_v_low) return "AB VOLTAGE TOO LOW";
+    if (f->error_ab_v_high) return "AB VOLTAGE TOO HIGH";
+    if (f->error_ab_c_low) return "AB CURRENT TOO LOW";
+    if (f->error_ab_c_high) return "AB CURRENT TOO HIGH";
+
+    return NULL;
 }
 
-static void disp_set_time(uint64_t total_ms, uint64_t current_lap_ms)
+static void format_mmss(char *buf, size_t len, uint64_t total_sec)
+{
+    //uint32_t total_sec = ms / 1000;
+    uint32_t minutes = total_sec / 60;
+    uint32_t seconds = total_sec % 60;
+    //uint32_t centis = (ms % 1000) / 10;
+
+    snprintf(buf, len, "%u:%02u", minutes, seconds);
+//.%02u
+}
+
+static void disp_set_time(uint64_t total_s, uint64_t current_lap_s)
 {
     char buf_time[16];
-    format_mmss(buf_time, sizeof(buf_time), total_ms);
+    format_mmss(buf_time, sizeof(buf_time), total_s);
     lv_textarea_set_text(objects.total_time_area, buf_time);
 
-    format_mmss(buf_time, sizeof(buf_time), current_lap_ms);
+    format_mmss(buf_time, sizeof(buf_time), current_lap_s);
     lv_textarea_set_text(objects.lap_time_area, buf_time);
 }
 
@@ -51,11 +81,18 @@ static void start_time_measurement()
 
     time.measurement_running = true;
     lap_counter = 1;
+
     time.race_start_ms = now;
     time.lap_start_ms = now;
 
+    time.total_ms = 0;
+    time.current_lap_ms = 0;
+    time.lap_duration_ms = 0;
+
+    time.lap_start_s = 0;
+
     LOG_INF("Time measuring started");
-    disp_update_gui();
+    //disp_update_gui();
 }
 
 void next_lap_time_measurement()
@@ -69,25 +106,29 @@ void next_lap_time_measurement()
 
     time.lap_duration_ms = now - time.lap_start_ms;
 
+    if (lap_counter <= MAX_LAPS) {
+        time.laps_duration_ms[lap_counter - 1] = time.lap_duration_ms;
+    }
+
     if (lap_counter < MAX_LAPS) {
-        time.laps_duration_ms[lap_counter] = time.lap_duration_ms;
         lap_counter++;
     }
     //char buf[16];
     //format_mmss(buf, sizeof(buf), lap_ms);
     //lv_label_set_text(label_last_lap, buf);
+    time.lap_start_ms = now;
+    time.lap_start_s = (uint32_t)((now - time.race_start_ms) / 1000);
 
     LOG_INF("Lap %u", lap_counter);
 
-    time.lap_start_ms = now;
-    disp_update_gui();
+    //disp_update_gui();
 }
 
 void reset_time_measurements()
 {
     lap_counter = 0;
     memset(&time, 0, sizeof(time));
-    disp_update_gui();
+    //disp_update_gui();
     LOG_INF("Reset all");
     //lv_label_set_text(label_total, "00:00");
     //lv_label_set_text(label_lap, "00:00");
@@ -113,7 +154,7 @@ static void disp_set_sc_voltage(uint16_t voltage)
     if (voltage <= 40)
     {
         lv_obj_set_style_bg_color(
-            objects.sc_voltage_bar, lv_color_hex(0xD71717), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+            objects.sc_voltage_bar, lv_color_hex(0xff0000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     }
     else
     {
@@ -131,8 +172,15 @@ static void disp_set_message(char* msg, uint32_t color)
 void disp_update_gui()
 {
     uint64_t now = k_uptime_get();
+
+    const char *fault_msg = NULL;
+
     time.total_ms = 0;
+    time.total_s = 0;
+
     time.current_lap_ms = 0;
+    time.current_lap_s = 0;
+
     display_data_t data = { 0 };
 
     k_mutex_lock(&can_data_mutex, K_FOREVER);
@@ -142,13 +190,28 @@ void disp_update_gui()
     if (time.measurement_running) {
         time.total_ms = now - time.race_start_ms;
         time.current_lap_ms = now - time.lap_start_ms;
+
+        time.total_s = (uint32_t)(time.total_ms / 1000);
+
+        if (time.total_s >= time.lap_start_s) {
+            time.current_lap_s = time.total_s - time.lap_start_s;
+        } else {
+            time.current_lap_s = 0;
+        }
     }
 
-    disp_set_time(time.total_ms, time.current_lap_ms);
-    disp_set_lap_number(lap_counter);
-    disp_set_vehicle_speed(display_data.speed_kph);
-    disp_set_sc_voltage(display_data.sc_voltage);
+    fault_msg = mcu_faults_get_message(&data.mcu_faults);
 
+    disp_set_time(time.total_s, time.current_lap_s);
+    disp_set_lap_number(lap_counter);
+    disp_set_vehicle_speed(data.speed_kph);
+    disp_set_sc_voltage(data.sc_voltage);
+
+    if (fault_msg != NULL) {
+        disp_set_message((char *)fault_msg, 0xD71717);
+    } else {
+        disp_set_message("EVERYTHING OK - NO FAULTS", 0x2ACF4F);
+    }
 }
 
 static void swu_display_thread(void *p1, void *p2, void *p3) {
@@ -193,10 +256,17 @@ void swu_display_init()
     //lv_timer_create(ui_timer_cb, 100, NULL);
 
     k_tid_t display_tid = k_thread_create(
-        &swu_display_thread_data, swu_display_thread_stack_area,
+        &swu_display_thread_data,
+        swu_display_thread_stack_area,
         K_THREAD_STACK_SIZEOF(swu_display_thread_stack_area),
-        swu_display_thread, NULL, NULL, NULL,
-        SWU_DISPLAY_THREAD_PRIORITY, 0, K_NO_WAIT);
+        swu_display_thread,
+        NULL,
+        NULL,
+        NULL,
+        SWU_DISPLAY_THREAD_PRIORITY,
+        0,
+        K_NO_WAIT
+    );
     k_thread_name_set(display_tid, "display");
 
     LOG_INF("Display initialized");

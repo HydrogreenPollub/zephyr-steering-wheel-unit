@@ -8,7 +8,7 @@
 #include <lvgl.h>
 #include "ui.h"
 #include <zephyr/logging/log.h>
-#include "steering_wheel.h"
+#include "steering_wheel_inputs.h"
 #include "steering_wheel_can.h"
 
 #define MAX_LAPS 50
@@ -16,9 +16,12 @@
 typedef struct
 {
     uint64_t total_ms;
+    uint64_t total_s;
     uint64_t current_lap_ms;
+    uint64_t current_lap_s;
     uint64_t race_start_ms;
     uint64_t lap_start_ms;
+    uint64_t lap_start_s;
     uint64_t laps_duration_ms[MAX_LAPS];
     uint64_t lap_duration_ms;
     bool measurement_running;
@@ -35,7 +38,7 @@ typedef struct
 {
     uint16_t speed_kph;
     uint16_t sc_voltage;
-    uint8_t error_msg;
+    struct candef_mcu_faults_t mcu_faults;
 }display_data_t;
 
 extern display_data_t display_data;

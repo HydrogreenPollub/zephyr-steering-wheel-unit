@@ -1,0 +1,107 @@
+/ {
+	aliases {
+		status-led = &status_led;
+		button-pedals-calib = &button_pedals_calib;
+		button-light-hazard = &button_light_hazard;
+		button-light-beam = &button_light_beam;
+		button-light-position = &button_light_position;
+		button-light-right-indicator = &button_light_right_indicator;
+		button-light-left-indicator = &button_light_left_indicator;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		can_rx_led: led_pb7 {
+			gpios = <&gpiob 7 GPIO_ACTIVE_HIGH>;
+			label = "CAN Rx LED";
+		};
+		can_tx_led: led_pb6 {
+			gpios = <&gpiob 6 GPIO_ACTIVE_HIGH>;
+			label = "CAN Tx LED";
+		};
+		status_led: led_pb5 {
+			gpios = <&gpiob 5 GPIO_ACTIVE_HIGH>;
+			label = "Status LED";
+		};
+	};
+
+	buttons: buttons {
+		compatible = "gpio-keys";
+		debounce-interval-ms = <30>;
+		button_emergency: button_pa12 {
+			gpios = <&gpioa 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "emergency button";
+			zephyr,code = <INPUT_KEY_3>;
+		};
+		button_start: button_pa10 {
+			gpios = <&gpioa 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "button start";
+			zephyr,code = <INPUT_KEY_2>;
+		};
+		button_reset: button_pa9 {
+			gpios = <&gpioa 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "reset button";
+			zephyr,code = <INPUT_KEY_1>;
+		};
+		button_lap_time: button_pa8 {
+			gpios = <&gpioa 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "lap time reset button";
+			zephyr,code = <INPUT_KEY_0>;
+		};
+		button_deadman: button_pa11 {
+			gpios = <&gpioa 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "deadman switch";
+			zephyr,code = <INPUT_KEY_4>;
+		};
+		button_pedals_calib: button_pb4 {
+			gpios = <&gpiob 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "pedals calib button";
+			zephyr,code = <INPUT_KEY_5>;
+		};
+		/* test button - already connected on pcb */
+		button_test: button_pc13 {
+			gpios = <&gpioc 13 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "test button";
+			zephyr,code = <INPUT_KEY_6>;
+		};
+	};
+
+	buttons_lights: buttons_lights{
+		compatible = "gpio-keys";
+		debounce-interval-ms = <30>;
+		button_light_hazard: button_pa0 {
+			gpios = <&gpioa 0 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "light hazard button";
+			zephyr,code = <INPUT_KEY_7>;
+		};
+		button_light_beam: button_pa1 {
+			gpios = <&gpioa 1 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "light beam button";
+			zephyr,code = <INPUT_KEY_8>;
+		};
+		button_light_position: button_pa2 {
+			gpios = <&gpioa 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "light position button";
+			zephyr,code = <INPUT_KEY_9>;
+		};
+		button_light_right_indicator: button_pa3 {
+			gpios = <&gpioa 3 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "light right indicator button";
+			zephyr,code = <INPUT_KEY_B>;
+		};
+		button_light_left_indicator: button_pa4 {
+			gpios = <&gpioa 4 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "light left indicator button";
+			zephyr,code = <INPUT_KEY_C>;
+		};
+	};
+
+	longpress {
+		compatible = "zephyr,input-longpress";
+		input = <&buttons>;
+		input-codes = <INPUT_KEY_0>;
+		short-codes = <INPUT_KEY_A>;
+		long-codes = <INPUT_KEY_X>;
+		long-delay-ms = <3000>;
+	};
+};
