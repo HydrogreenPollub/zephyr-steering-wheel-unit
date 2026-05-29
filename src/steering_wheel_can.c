@@ -29,7 +29,8 @@ static struct k_work_delayable rx_led_off_work;
 static struct k_work_delayable bus_off_recovery_work;
 
 struct can_filter swu_can_filter[] = {
-    CAN_FILTER_EXT(CANDEF_MCU_ANALOG_POWERTRAIN_FRAME_ID),
+    //CAN_FILTER_EXT(CANDEF_MCU_ANALOG_POWERTRAIN_FRAME_ID),
+    CAN_FILTER_EXT(CANDEF_MCU_ANALOG_FUEL_CELL_FRAME_ID),
     CAN_FILTER_EXT(CANDEF_MCU_ANALOG_DRIVE_FRAME_ID),
     CAN_FILTER_EXT(CANDEF_MCU_FAULTS_FRAME_ID),
 };
@@ -148,7 +149,7 @@ static void process_can_frame(const struct can_frame *frame)
         break;
     }
 
-    case CANDEF_MCU_ANALOG_POWERTRAIN_FRAME_ID: {
+/*   case CANDEF_MCU_ANALOG_POWERTRAIN_FRAME_ID: {
         if (frame->dlc >= CANDEF_MCU_ANALOG_POWERTRAIN_LENGTH) {
            struct candef_mcu_analog_powertrain_t dst_p;
             candef_mcu_analog_powertrain_unpack(&dst_p, frame->data, frame->dlc);
@@ -157,7 +158,16 @@ static void process_can_frame(const struct can_frame *frame)
             display_data.sc_voltage = dst_p.supercapacitor_voltage;
             k_mutex_unlock(&can_data_mutex);
         }
-        break;
+        break;*/
+	case CANDEF_MCU_ANALOG_FUEL_CELL_FRAME_ID: {
+        if (frame->dlc >= CANDEF_MCU_ANALOG_FUEL_CELL_LENGTH) {
+           struct candef_mcu_analog_fuel_cell_t dst_p;
+            candef_mcu_analog_fuel_cell_unpack(&dst_p, frame->data, frame->dlc);
+
+            k_mutex_lock(&can_data_mutex, K_FOREVER);
+            display_data.sc_voltage = dst_p.fuel_cell_output_voltage;
+            k_mutex_unlock(&can_data_mutex);
+        }
     }
     case CANDEF_MCU_FAULTS_FRAME_ID: {
        if (frame->dlc >= CANDEF_MCU_FAULTS_LENGTH) {
@@ -204,6 +214,7 @@ void swu_can_init() {
 
     k_mutex_init(&can_data_mutex);
 
+#if HYDROS == 0
     k_tid_t can_tx_tid = k_thread_create(
         &swu_can_tx_thread_data,
         swu_can_tx_thread_stack_area,
@@ -217,6 +228,7 @@ void swu_can_init() {
         K_NO_WAIT);
 
     k_thread_name_set(can_tx_tid, "can_tx");
+#endif
 
     k_tid_t can_process_rx_data_tid = k_thread_create(
         &swu_can_process_rx_data_thread_data,

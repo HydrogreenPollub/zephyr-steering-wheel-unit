@@ -6,6 +6,9 @@
 
 LOG_MODULE_REGISTER(steering_wheel_display);
 
+#define OK_COLOR    0x00ff00
+#define ERROR_COLOR 0xff0000
+
 #define SWU_DISPLAY_THREAD_STACK_SIZE      4096
 #define SWU_DISPLAY_THREAD_PRIORITY        5
 
@@ -16,6 +19,15 @@ static uint32_t lap_counter = 0;
 static time_t time = { 0 };
 display_data_t display_data = { 0 };
 volatile time_measurement_request_t time_measurement_request = IDLE;
+
+static inline lv_color_t my_color_hex(uint32_t hex)
+{
+    uint32_t r = (hex >> 16) & 0xFF;
+    uint32_t g = (hex >> 8)  & 0xFF;
+    uint32_t b = hex & 0xFF;
+
+    return lv_color_hex((b << 16) | (g << 8) | r);
+}
 
 static const char *mcu_faults_get_message(const struct candef_mcu_faults_t *f)
 {
@@ -138,34 +150,37 @@ void reset_time_measurements()
 static void disp_set_vehicle_speed(uint16_t speed)
 {
     char buffer_speed[20];
+	speed /= 100;
 
     sprintf(buffer_speed, "%u", speed);
     // lv_meter_set_indicator_value(objects.speed_meter, indicator1, speed);
     lv_textarea_set_text(objects.speed_area, buffer_speed);
 }
 
-static void disp_set_sc_voltage(uint16_t voltage)
+static void disp_set_sc_voltage(uint16_t supercap_voltage)
 {
     char buffer_sc_voltage[20];
-
+	//voltage /= 1000;
+	uint16_t voltage = supercap_voltage / 1000;
+	uint16_t voltage_dec_part = supercap_voltage %= 1000;
     lv_bar_set_value(objects.sc_voltage_bar, voltage, LV_ANIM_ON);
-    sprintf(buffer_sc_voltage, "%u V", voltage);
+    sprintf(buffer_sc_voltage, "%u.%.2u V", voltage, voltage_dec_part);
     lv_label_set_text(objects.sc_voltage, buffer_sc_voltage);
     if (voltage <= 40)
     {
         lv_obj_set_style_bg_color(
-            objects.sc_voltage_bar, lv_color_hex(0xff0000), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+            objects.sc_voltage_bar, my_color_hex(ERROR_COLOR), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     }
     else
     {
         lv_obj_set_style_bg_color(
-            objects.sc_voltage_bar, lv_color_hex(0xff2acf4f), LV_PART_INDICATOR | LV_STATE_DEFAULT);
+            objects.sc_voltage_bar, my_color_hex(OK_COLOR), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     }
 }
 
 static void disp_set_message(char* msg, uint32_t color)
 {
-    lv_obj_set_style_bg_color(objects.messages_area, lv_color_hex(color), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(objects.messages_area, my_color_hex(color), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_textarea_set_text(objects.messages_area, msg);
 }
 
@@ -208,9 +223,9 @@ void disp_update_gui()
     disp_set_sc_voltage(data.sc_voltage);
 
     if (fault_msg != NULL) {
-        disp_set_message((char *)fault_msg, 0xD71717);
+        disp_set_message((char *)fault_msg, ERROR_COLOR);
     } else {
-        disp_set_message("EVERYTHING OK - NO FAULTS", 0x2ACF4F);
+        disp_set_message("EVERYTHING OK - NO FAULTS", OK_COLOR);
     }
 }
 

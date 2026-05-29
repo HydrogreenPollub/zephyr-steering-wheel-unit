@@ -28,25 +28,25 @@
 	buttons: buttons {
 		compatible = "gpio-keys";
 		debounce-interval-ms = <30>;
-		button_emergency: button_pa12 {
-			gpios = <&gpioa 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "emergency button";
-			zephyr,code = <INPUT_KEY_3>;
-		};
-		button_start: button_pa10 {
-			gpios = <&gpioa 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "button start";
-			zephyr,code = <INPUT_KEY_2>;
+		button_lap_time: button_pa8 {
+			gpios = <&gpioa 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "lap time reset button";
+			zephyr,code = <INPUT_KEY_0>;
 		};
 		button_reset: button_pa9 {
 			gpios = <&gpioa 9 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
 			label = "reset button";
 			zephyr,code = <INPUT_KEY_1>;
 		};
-		button_lap_time: button_pa8 {
-			gpios = <&gpioa 8 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
-			label = "lap time reset button";
-			zephyr,code = <INPUT_KEY_0>;
+		button_start: button_pa10 {
+			gpios = <&gpioa 10 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "start button";
+			zephyr,code = <INPUT_KEY_2>;
+		};
+		button_emergency: button_pa12 {
+			gpios = <&gpioa 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			label = "emergency button";
+			zephyr,code = <INPUT_KEY_3>;
 		};
 		button_deadman: button_pa11 {
 			gpios = <&gpioa 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
@@ -102,6 +102,6 @@
 		input-codes = <INPUT_KEY_0>;
 		short-codes = <INPUT_KEY_A>;
 		long-codes = <INPUT_KEY_X>;
-		long-delay-ms = <3000>;
+		long-delay-ms = <2000>;
 	};
 };

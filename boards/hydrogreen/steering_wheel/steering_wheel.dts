@@ -50,7 +50,7 @@
 			reg = <0>;
 			pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
 			//display-inversion;
-			rotation = <270>;
+			rotation = <90>;
 			width = <240>;
 			height = <320>;
 

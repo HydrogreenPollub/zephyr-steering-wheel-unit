@@ -14,7 +14,10 @@ swu_button_t button = {
     .deadman = GPIO_DT_SPEC_GET(BUTTON_DEADMAN_NODE, gpios),
     .start = GPIO_DT_SPEC_GET(BUTTON_START_NODE, gpios),
     .reset = GPIO_DT_SPEC_GET(BUTTON_RESET_NODE, gpios),
+
+#if HYDROS == 0
     .pedals_calib = GPIO_DT_SPEC_GET(BUTTON_PEDALS_CALIB_NODE, gpios),
+#endif
 };
 
 struct candef_mcu_inputs_t mcu_inputs_state = {
@@ -149,12 +152,12 @@ static bool update_buttons_states(uint16_t code, uint8_t state)
     k_mutex_lock(&mcu_inputs_mutex, K_FOREVER);
 
     switch (code) {
+
     case INPUT_KEY_0:
-        button_state_changed = check_button_state(&mcu_inputs_state.emergency_switch, state);
         break;
 
     case INPUT_KEY_1:
-        button_state_changed = check_button_state(&mcu_inputs_state.dead_mans_switch, state);
+        button_state_changed = check_button_state(&mcu_inputs_state.reset_button, state);
         break;
 
     case INPUT_KEY_2:
@@ -162,14 +165,15 @@ static bool update_buttons_states(uint16_t code, uint8_t state)
         break;
 
     case INPUT_KEY_3:
-        button_state_changed = check_button_state(&mcu_inputs_state.reset_button, state);
+        button_state_changed = check_button_state(&mcu_inputs_state.emergency_switch, state);
+        break;
+
+    case INPUT_KEY_4:
+        button_state_changed = check_button_state(&mcu_inputs_state.dead_mans_switch, state);
         break;
 
     case INPUT_KEY_5:
         button_state_changed = check_button_state(&mcu_inputs_state.calibration_button, state);
-        break;
-
-    case INPUT_KEY_4:
         break;
 
     case INPUT_KEY_6:
@@ -208,7 +212,7 @@ static void input_cb(struct input_event *evt, void *user_data)
             break;
         }
     }
-
+#if HYDROS == 0
     if (evt->value != 0 && evt->value != 1) {
         return;
     }
@@ -221,6 +225,7 @@ static void input_cb(struct input_event *evt, void *user_data)
         LOG_INF("Input changed: code=%u button_state=%u", evt->code, state);
         k_work_submit(&mcu_inputs_can_send_work);
     }
+#endif
 }
 
 INPUT_CALLBACK_DEFINE(NULL, input_cb, NULL);
