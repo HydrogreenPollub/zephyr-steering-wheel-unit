@@ -28,7 +28,7 @@ struct candef_mcu_inputs_t mcu_inputs_state = {
     .start_button = BUTTON_RELEASED,
     .reset_button = BUTTON_RELEASED,
     .calibration_button = BUTTON_RELEASED,
-    .gas_pedal = 0,
+    //.gas_pedal = 0,
 };
 
 static int check_button_gpios_ready()

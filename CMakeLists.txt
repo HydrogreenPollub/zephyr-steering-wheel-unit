@@ -41,7 +41,6 @@ target_sources(app PRIVATE
         peripherals/uart.c
         peripherals/rs485.c
         peripherals/status_led.c
-        peripherals/test_button.c
         can-definitions/candef.c
         ui/ui.c
         ui/screens.c

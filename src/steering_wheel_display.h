@@ -43,7 +43,8 @@ typedef struct
 
 extern display_data_t display_data;
 extern volatile time_measurement_request_t time_measurement_request;
-
+extern uint32_t lap_counter;
+extern time_t time_g;
 void reset_time_measurements();
 void next_lap_time_measurement();
 void disp_update_gui();

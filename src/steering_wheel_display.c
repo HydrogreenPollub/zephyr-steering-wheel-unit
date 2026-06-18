@@ -15,8 +15,8 @@ LOG_MODULE_REGISTER(steering_wheel_display);
 K_THREAD_STACK_DEFINE(swu_display_thread_stack_area, SWU_DISPLAY_THREAD_STACK_SIZE);
 struct k_thread swu_display_thread_data;
 
-static uint32_t lap_counter = 0;
-static time_t time = { 0 };
+uint32_t lap_counter = 0;
+time_t time_g = { 0 };
 display_data_t display_data = { 0 };
 volatile time_measurement_request_t time_measurement_request = IDLE;
 
@@ -91,17 +91,17 @@ static void start_time_measurement()
 {
     uint64_t now = k_uptime_get();
 
-    time.measurement_running = true;
+    time_g.measurement_running = true;
     lap_counter = 1;
 
-    time.race_start_ms = now;
-    time.lap_start_ms = now;
+    time_g.race_start_ms = now;
+    time_g.lap_start_ms = now;
 
-    time.total_ms = 0;
-    time.current_lap_ms = 0;
-    time.lap_duration_ms = 0;
+    time_g.total_ms = 0;
+    time_g.current_lap_ms = 0;
+    time_g.lap_duration_ms = 0;
 
-    time.lap_start_s = 0;
+    time_g.lap_start_s = 0;
 
     LOG_INF("Time measuring started");
     //disp_update_gui();
@@ -111,15 +111,15 @@ void next_lap_time_measurement()
 {
     uint64_t now = k_uptime_get();
 
-    if (!time.measurement_running) {
+    if (!time_g.measurement_running) {
         start_time_measurement();
         return;
     }
 
-    time.lap_duration_ms = now - time.lap_start_ms;
+    time_g.lap_duration_ms = now - time_g.lap_start_ms;
 
     if (lap_counter <= MAX_LAPS) {
-        time.laps_duration_ms[lap_counter - 1] = time.lap_duration_ms;
+        time_g.laps_duration_ms[lap_counter - 1] = time_g.lap_duration_ms;
     }
 
     if (lap_counter < MAX_LAPS) {
@@ -128,8 +128,8 @@ void next_lap_time_measurement()
     //char buf[16];
     //format_mmss(buf, sizeof(buf), lap_ms);
     //lv_label_set_text(label_last_lap, buf);
-    time.lap_start_ms = now;
-    time.lap_start_s = (uint32_t)((now - time.race_start_ms) / 1000);
+    time_g.lap_start_ms = now;
+    time_g.lap_start_s = (uint32_t)((now - time_g.race_start_ms) / 1000);
 
     LOG_INF("Lap %u", lap_counter);
 
@@ -139,7 +139,7 @@ void next_lap_time_measurement()
 void reset_time_measurements()
 {
     lap_counter = 0;
-    memset(&time, 0, sizeof(time));
+    memset(&time_g, 0, sizeof(time_g));
     //disp_update_gui();
     LOG_INF("Reset all");
     //lv_label_set_text(label_total, "00:00");
@@ -190,11 +190,11 @@ void disp_update_gui()
 
     const char *fault_msg = NULL;
 
-    time.total_ms = 0;
-    time.total_s = 0;
+    time_g.total_ms = 0;
+    time_g.total_s = 0;
 
-    time.current_lap_ms = 0;
-    time.current_lap_s = 0;
+    time_g.current_lap_ms = 0;
+    time_g.current_lap_s = 0;
 
     display_data_t data = { 0 };
 
@@ -202,22 +202,22 @@ void disp_update_gui()
     data = display_data;
     k_mutex_unlock(&can_data_mutex);
 
-    if (time.measurement_running) {
-        time.total_ms = now - time.race_start_ms;
-        time.current_lap_ms = now - time.lap_start_ms;
+    if (time_g.measurement_running) {
+        time_g.total_ms = now - time_g.race_start_ms;
+        time_g.current_lap_ms = now - time_g.lap_start_ms;
 
-        time.total_s = (uint32_t)(time.total_ms / 1000);
+        time_g.total_s = (uint32_t)(time_g.total_ms / 1000);
 
-        if (time.total_s >= time.lap_start_s) {
-            time.current_lap_s = time.total_s - time.lap_start_s;
+        if (time_g.total_s >= time_g.lap_start_s) {
+            time_g.current_lap_s = time_g.total_s - time_g.lap_start_s;
         } else {
-            time.current_lap_s = 0;
+            time_g.current_lap_s = 0;
         }
     }
 
     fault_msg = mcu_faults_get_message(&data.mcu_faults);
 
-    disp_set_time(time.total_s, time.current_lap_s);
+    disp_set_time(time_g.total_s, time_g.current_lap_s);
     disp_set_lap_number(lap_counter);
     disp_set_vehicle_speed(data.speed_kph);
     disp_set_sc_voltage(data.sc_voltage);

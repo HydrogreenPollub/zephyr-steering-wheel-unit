@@ -93,6 +93,44 @@ int can_send_mcu_inputs()
     return ret;
 }
 
+int can_send_mcu_time()
+{
+    struct candef_swu_time_t mcu_time;
+    uint8_t time_data[CANDEF_SWU_TIME_LENGTH] = { 0 };
+
+    struct candef_swu_state_t mcu_state;
+    uint8_t lap_data[CANDEF_SWU_STATE_LENGTH] = { 0 };
+
+
+    //k_mutex_lock(&mcu_inputs_mutex, K_FOREVER);
+    mcu_time.total_time_ms = time_g.total_ms;
+    mcu_time.lap_time_ms = time_g.current_lap_ms;
+    mcu_state.lap_number = lap_counter;
+    //k_mutex_unlock(&mcu_inputs_mutex);
+
+    candef_swu_time_pack(time_data, &mcu_time, sizeof(time_data));
+    candef_swu_state_pack(lap_data, &mcu_state, sizeof(lap_data));
+
+    struct can_frame time_frame = {
+        .id = CANDEF_SWU_TIME_FRAME_ID,
+        .dlc = CANDEF_SWU_TIME_LENGTH,
+        .flags = CAN_FRAME_IDE,
+    };
+    struct can_frame lap_frame = {
+        .id = CANDEF_SWU_STATE_FRAME_ID,
+        .dlc = CANDEF_SWU_STATE_LENGTH,
+        .flags = CAN_FRAME_IDE,
+    };
+
+    memcpy(time_frame.data, time_data, CANDEF_SWU_TIME_LENGTH);
+    memcpy(lap_frame.data, lap_data, CANDEF_SWU_STATE_LENGTH);
+
+    can_send(can.device, &time_frame, K_MSEC(100), swu_can_tx_callback, NULL);
+    int ret = can_send(can.device, &lap_frame, K_MSEC(100), swu_can_tx_callback, NULL);
+
+    return ret;
+}
+
 static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
 
     ARG_UNUSED(p1);
@@ -106,7 +144,8 @@ static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
         read_all_buttons_from_gpio();
 
         int ret = can_send_mcu_inputs();
-        if (ret < 0) {
+        can_send_mcu_time();
+        /*if (ret < 0) {
             LOG_ERR("MCU_INPUTS CAN send failed: %d", ret);
             continue;
         }
@@ -120,7 +159,7 @@ static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
             LOG_ERR("CAN TX error: %d", can_tx_result);
             continue;
         }
-
+*/
         LOG_INF("MCU_INPUTS sent via CAN succesfully");
         gpio_set(&can.tx_led);
         k_work_reschedule(&tx_led_off_work, K_MSEC(50));
