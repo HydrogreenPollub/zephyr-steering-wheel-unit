@@ -15,7 +15,7 @@ swu_button_t button = {
     .start = GPIO_DT_SPEC_GET(BUTTON_START_NODE, gpios),
     .reset = GPIO_DT_SPEC_GET(BUTTON_RESET_NODE, gpios),
 
-#if HYDROS == 0
+#if VEHICLE_TYPE == HYDRA
     .pedals_calib = GPIO_DT_SPEC_GET(BUTTON_PEDALS_CALIB_NODE, gpios),
 #endif
 };
@@ -28,7 +28,6 @@ struct candef_mcu_inputs_t mcu_inputs_state = {
     .start_button = BUTTON_RELEASED,
     .reset_button = BUTTON_RELEASED,
     .calibration_button = BUTTON_RELEASED,
-    //.gas_pedal = 0,
 };
 
 static int check_button_gpios_ready()
@@ -53,10 +52,12 @@ static int check_button_gpios_ready()
         return -ENODEV;
     }
 
+#if VEHICLE_TYPE == HYDRA
     if (!gpio_is_ready_dt(&button.pedals_calib)) {
         LOG_ERR("Pedals calib button GPIO not ready");
         return -ENODEV;
     }
+#endif
 
     return 0;
 }
@@ -101,10 +102,12 @@ void read_all_buttons_from_gpio()
         mcu_inputs_state.reset_button = input_value_to_button_state(button_state);
     }
 
+#if VEHICLE_TYPE == HYDRA
     button_state = gpio_pin_get_dt(&button.pedals_calib);
     if (button_state >= 0) {
         mcu_inputs_state.calibration_button = input_value_to_button_state(button_state);
     }
+#endif
 
     k_mutex_unlock(&mcu_inputs_mutex);
 }
@@ -114,9 +117,9 @@ static void mcu_inputs_can_send_work_handler(struct k_work *work)
 {
     ARG_UNUSED(work);
 
-    int ret = can_send_mcu_inputs();
+    int ret = can_send_swu_state();
     if (ret < 0) {
-        LOG_ERR("MCU_INPUTS CAN send failed: %d", ret);
+        LOG_ERR("SWU_STATE CAN send failed: %d", ret);
         return;
     }
     if (k_sem_take(&can_tx_done_sem, K_MSEC(200)) != 0) {
@@ -129,7 +132,7 @@ static void mcu_inputs_can_send_work_handler(struct k_work *work)
         return;
     }
 
-    LOG_INF("MCU_INPUTS sent via CAN succesfully");
+    LOG_INF("SWU_STATE sent via CAN succesfully");
     gpio_set(&can.tx_led);
     k_work_reschedule(&tx_led_off_work, K_MSEC(50));
 
@@ -212,7 +215,7 @@ static void input_cb(struct input_event *evt, void *user_data)
             break;
         }
     }
-#if HYDROS == 0
+#if VEHICLE_TYPE == HYDROS
     if (evt->value != 0 && evt->value != 1) {
         return;
     }

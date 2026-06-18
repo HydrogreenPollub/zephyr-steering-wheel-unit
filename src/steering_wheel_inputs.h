@@ -54,6 +54,9 @@ extern struct candef_mcu_inputs_t mcu_inputs_state;
 void read_all_buttons_from_gpio();
 void swu_inputs_init();
 
-#define HYDROS 1
+#define HYDROS 0
+#define HYDRA  1
+
+#define VEHICLE_TYPE HYDROS
 
 #endif //STEERING_WHEEL_INPUTS_H

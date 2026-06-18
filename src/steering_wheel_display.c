@@ -151,6 +151,7 @@ static void disp_set_vehicle_speed(uint16_t speed)
 {
     char buffer_speed[20];
 	speed /= 100;
+	speed *= 3;
 
     sprintf(buffer_speed, "%u", speed);
     // lv_meter_set_indicator_value(objects.speed_meter, indicator1, speed);
