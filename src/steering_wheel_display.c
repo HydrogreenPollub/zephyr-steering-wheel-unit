@@ -4,6 +4,8 @@
 
 #include "steering_wheel_display.h"
 
+#include <zephyr/drivers/mipi_dbi.h>
+
 LOG_MODULE_REGISTER(steering_wheel_display);
 
 #define OK_COLOR    0x00ff00
@@ -11,6 +13,19 @@ LOG_MODULE_REGISTER(steering_wheel_display);
 
 #define SWU_DISPLAY_THREAD_STACK_SIZE      4096
 #define SWU_DISPLAY_THREAD_PRIORITY        5
+
+#define ILI9341_CMD_MADCTL 0x36
+#define ILI9341_MADCTL_MY  BIT(7)
+#define ILI9341_MADCTL_MX  BIT(6)
+#define ILI9341_MADCTL_MV  BIT(5)
+
+#define SWU_DISPLAY_NODE DT_NODELABEL(ili9341)
+
+static const struct device *display_dbi = DEVICE_DT_GET(DT_PARENT(SWU_DISPLAY_NODE));
+static const struct mipi_dbi_config display_dbi_config = {
+    .mode = DT_STRING_UPPER_TOKEN_OR(SWU_DISPLAY_NODE, mipi_mode, MIPI_DBI_MODE_SPI_4WIRE),
+    .config = MIPI_DBI_SPI_CONFIG_DT(SWU_DISPLAY_NODE, SPI_OP_MODE_MASTER | SPI_WORD_SET(8), 0),
+};
 
 K_THREAD_STACK_DEFINE(swu_display_thread_stack_area, SWU_DISPLAY_THREAD_STACK_SIZE);
 struct k_thread swu_display_thread_data;
@@ -258,6 +273,23 @@ static void ui_timer_cb(lv_timer_t *timer)
     disp_update_gui();
 }
 
+static void ili9341_apply_orientation_workaround()
+{
+    const uint8_t madctl = ILI9341_MADCTL_MV | ILI9341_MADCTL_MX | ILI9341_MADCTL_MY;
+    int ret;
+
+    if (!device_is_ready(display_dbi)) {
+        LOG_ERR("Display DBI is not ready");
+        return;
+    }
+
+    ret = mipi_dbi_command_write(
+        display_dbi, &display_dbi_config, ILI9341_CMD_MADCTL, &madctl, sizeof(madctl));
+    if (ret < 0) {
+        LOG_ERR("Failed to apply ILI9341 orientation workaround: %d", ret);
+    }
+}
+
 void swu_display_init()
 {
     const struct device *display = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
@@ -268,6 +300,7 @@ void swu_display_init()
     }
 
     display_blanking_off(display);
+    ili9341_apply_orientation_workaround();
     ui_init();
     //lv_timer_create(ui_timer_cb, 100, NULL);
 

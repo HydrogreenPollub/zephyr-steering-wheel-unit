@@ -27,6 +27,12 @@ endif()
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(app LANGUAGES C)
 
+zephyr_compile_definitions(
+        LV_FONT_MONTSERRAT_18=1
+        LV_FONT_MONTSERRAT_26=1
+        LV_FONT_MONTSERRAT_30=1
+)
+
 target_sources(app PRIVATE
         src/main.c
         src/steering_wheel_inputs.c

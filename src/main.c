@@ -15,9 +15,6 @@ LOG_MODULE_REGISTER(main);
 
 int main(void)
 {
-#if VEHICLE_TYPE == HYDROS
-    swu_inputs_init();
-#endif
     swu_display_init();
     swu_can_init();
     return 0;
