@@ -275,7 +275,11 @@ static void ui_timer_cb(lv_timer_t *timer)
 
 static void ili9341_apply_orientation_workaround()
 {
+#if VEHICLE_TYPE == HYDRA
+    const uint8_t madctl = ILI9341_MADCTL_MV;
+#else
     const uint8_t madctl = ILI9341_MADCTL_MV | ILI9341_MADCTL_MX | ILI9341_MADCTL_MY;
+#endif
     int ret;
 
     if (!device_is_ready(display_dbi)) {

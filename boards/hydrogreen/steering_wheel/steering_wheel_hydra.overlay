@@ -105,3 +105,7 @@
 		long-delay-ms = <2000>;
 	};
 };
+
+&ili9341 {
+	rotation = <90>;
+};

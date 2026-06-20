@@ -57,6 +57,4 @@ void swu_inputs_init();
 #define HYDROS 0
 #define HYDRA  1
 
-#define VEHICLE_TYPE HYDROS
-
 #endif //STEERING_WHEEL_INPUTS_H
