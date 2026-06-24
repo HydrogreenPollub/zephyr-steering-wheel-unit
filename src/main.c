@@ -15,7 +15,8 @@ LOG_MODULE_REGISTER(main);
 
 int main(void)
 {
-    swu_display_init();
+    swu_inputs_init();
     swu_can_init();
+    swu_display_init();
     return 0;
 }

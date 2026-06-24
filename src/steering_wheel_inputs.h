@@ -26,17 +26,20 @@
 #define BUTTON_LAP_TIME_NODE      DT_NODELABEL(button_lap_time)
 #define BUTTON_PEDALS_CALIB_NODE  DT_NODELABEL(button_pedals_calib)
 #define BUTTON_TEST_NODE          DT_NODELABEL(button_test)
-
-#define MCU_INPUTS_HEARTBEAT_MS       500
+#define BUTTON_LIGHT_HAZARD_NODE  DT_NODELABEL(button_light_hazard)
+#define BUTTON_LIGHT_BEAM_NODE    DT_NODELABEL(button_light_beam)
+#define BUTTON_LIGHT_POSITION_NODE DT_NODELABEL(button_light_position)
+#define BUTTON_LIGHT_RIGHT_INDICATOR_NODE DT_NODELABEL(button_light_right_indicator)
+#define BUTTON_LIGHT_LEFT_INDICATOR_NODE DT_NODELABEL(button_light_left_indicator)
 
 /*
  * button logic:
- * 0 = button pressed / active state
- * 1 = button released / inactive state
+ * 0 = button released / inactive state
+ * 1 = button pressed / active state
  */
 typedef enum {
-    BUTTON_PRESSED  = 0,
-    BUTTON_RELEASED = 1,
+    BUTTON_RELEASED = 0,
+    BUTTON_PRESSED  = 1,
 } button_state_t;
 
 typedef struct {
@@ -45,11 +48,19 @@ typedef struct {
     struct gpio_dt_spec start;
     struct gpio_dt_spec reset;
     struct gpio_dt_spec pedals_calib;
+#if VEHICLE_TYPE == HYDRA
+    struct gpio_dt_spec light_hazard;
+    struct gpio_dt_spec light_beam;
+    struct gpio_dt_spec light_position;
+    struct gpio_dt_spec light_right_indicator;
+    struct gpio_dt_spec light_left_indicator;
+#endif
 }swu_button_t;
 
 extern struct k_mutex mcu_inputs_mutex;
 extern swu_button_t button;
-extern struct candef_mcu_inputs_t mcu_inputs_state;
+extern struct candef_swu_mcu_inputs_t mcu_inputs_state;
+extern struct candef_swu_lcu_inputs_t lcu_inputs_state;
 
 void read_all_buttons_from_gpio();
 void swu_inputs_init();

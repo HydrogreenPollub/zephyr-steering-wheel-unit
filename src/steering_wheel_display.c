@@ -267,12 +267,6 @@ static void swu_display_thread(void *p1, void *p2, void *p3) {
     }
 }
 
-static void ui_timer_cb(lv_timer_t *timer)
-{
-    ARG_UNUSED(timer);
-    disp_update_gui();
-}
-
 static void ili9341_apply_orientation_workaround()
 {
 #if VEHICLE_TYPE == HYDRA

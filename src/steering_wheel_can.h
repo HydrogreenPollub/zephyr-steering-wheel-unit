@@ -30,7 +30,10 @@ extern struct k_work_delayable tx_led_off_work;
 extern swu_can_t can;
 
 void swu_can_init();
-int can_send_swu_state();
+void swu_can_request_tx();
+int can_send_swu_status();
+int can_send_swu_mcu_inputs();
+int can_send_swu_lcu_inputs();
 
 
 #endif //STEERING_WHEEL_CAN_H

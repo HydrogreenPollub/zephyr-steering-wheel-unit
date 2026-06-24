@@ -10,6 +10,9 @@ LOG_MODULE_REGISTER(swu_can, LOG_LEVEL_INF);
 #define SWU_CAN_TX_THREAD_PRIORITY                     5
 #define SWU_CAN_PROCESS_RX_DATA_THREAD_STACK_SIZE      2048
 #define SWU_CAN_PROCESS_RX_DATA_THREAD_PRIORITY        5
+#define SWU_CAN_HEARTBEAT_MS                           500
+#define SWU_STATUS_TIME_MAX_MS                         0xFFFFFFu
+#define SWU_STATUS_LAP_NUMBER_MAX                      0xFFu
 
 K_THREAD_STACK_DEFINE(swu_can_tx_thread_stack_area, SWU_CAN_TX_THREAD_STACK_SIZE);
 K_THREAD_STACK_DEFINE(swu_can_process_rx_data_thread_stack_area, SWU_CAN_PROCESS_RX_DATA_THREAD_STACK_SIZE);
@@ -18,6 +21,7 @@ struct k_thread swu_can_tx_thread_data;
 struct k_thread swu_can_process_rx_data_thread_data;
 
 K_SEM_DEFINE(can_tx_done_sem, 0, 1);
+K_SEM_DEFINE(can_tx_request_sem, 0, 1);
 //K_MSGQ_DEFINE(can_tx_msgq, sizeof(struct can_frame), 32, 4);
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), 32, 4);
 struct k_mutex can_data_mutex;
@@ -41,6 +45,35 @@ swu_can_t can = {
 };
 
 static void swu_can_tx_callback(const struct device *dev, int error, void *user_data);
+
+static uint8_t saturate_u8(uint32_t value, uint8_t max)
+{
+    return value > max ? max : (uint8_t)value;
+}
+
+static uint32_t saturate_u24(uint64_t value)
+{
+    return value > SWU_STATUS_TIME_MAX_MS ? SWU_STATUS_TIME_MAX_MS : (uint32_t)value;
+}
+
+static int send_swu_frame(uint32_t id, uint8_t dlc, const uint8_t *data)
+{
+    struct can_frame frame = {
+        .id = id,
+        .dlc = dlc,
+        .flags = CAN_FRAME_IDE,
+    };
+
+    memcpy(frame.data, data, dlc);
+
+    return can_send(can.device, &frame, K_MSEC(100), swu_can_tx_callback, NULL);
+}
+
+static void drain_tx_requests()
+{
+    while (k_sem_take(&can_tx_request_sem, K_NO_WAIT) == 0) {
+    }
+}
 
 static void tx_led_off_handler(struct k_work *work) { gpio_reset(&can.tx_led); }
 static void rx_led_off_handler(struct k_work *work) { gpio_reset(&can.rx_led); }
@@ -68,64 +101,67 @@ static void bus_off_recovery_handler(struct k_work *work) {
     }
 }
 
-int can_send_swu_state()
+void swu_can_request_tx()
 {
-    struct candef_swu_state_t swu_state = { 0 };
+    k_sem_give(&can_tx_request_sem);
+}
+
+int can_send_swu_status()
+{
+    enum can_state can_state = CAN_STATE_STOPPED;
+    struct candef_swu_status_t swu_status = { 0 };
+    uint8_t data[CANDEF_SWU_STATUS_LENGTH] = { 0 };
+    int ret;
+
+    ret = can_get_state(can.device, &can_state, NULL);
+    swu_status.can_state = ret < 0 ? UINT8_MAX : (uint8_t)can_state;
+    swu_status.lap_number = saturate_u8(lap_counter, SWU_STATUS_LAP_NUMBER_MAX);
+    swu_status.lap_time_ms = saturate_u24(time_g.current_lap_ms);
+    swu_status.total_time_ms = saturate_u24(time_g.total_ms);
+
+    ret = candef_swu_status_pack(data, &swu_status, sizeof(data));
+    if (ret < 0) {
+        return ret;
+    }
+
+    return send_swu_frame(CANDEF_SWU_STATUS_FRAME_ID, CANDEF_SWU_STATUS_LENGTH, data);
+}
+
+int can_send_swu_mcu_inputs()
+{
+    struct candef_swu_mcu_inputs_t swu_mcu_inputs = { 0 };
+    uint8_t data[CANDEF_SWU_MCU_INPUTS_LENGTH] = { 0 };
+    int ret;
 
     k_mutex_lock(&mcu_inputs_mutex, K_FOREVER);
-    /* HYDROS: button_deadman GPIO is wired as "full gas" (see hydros overlay). */
-    swu_state.gas_button = mcu_inputs_state.dead_mans_switch;
-    swu_state.emergency_switch = mcu_inputs_state.emergency_switch;
-    swu_state.dead_mans_switch = mcu_inputs_state.dead_mans_switch;
-    swu_state.leakage_detected = mcu_inputs_state.leakage_detected;
-    swu_state.shell_relay = mcu_inputs_state.shell_relay;
-    swu_state.start_button = mcu_inputs_state.start_button;
-    swu_state.reset_button = mcu_inputs_state.reset_button;
-    swu_state.calibration_button = mcu_inputs_state.calibration_button;
+    swu_mcu_inputs = mcu_inputs_state;
     k_mutex_unlock(&mcu_inputs_mutex);
 
-    swu_state.lap_number = lap_counter;
+    ret = candef_swu_mcu_inputs_pack(data, &swu_mcu_inputs, sizeof(data));
+    if (ret < 0) {
+        return ret;
+    }
 
-    uint8_t data[CANDEF_SWU_STATE_LENGTH] = { 0 };
-    candef_swu_state_pack(data, &swu_state, sizeof(data));
-
-    struct can_frame frame = {
-        .id = CANDEF_SWU_STATE_FRAME_ID,
-        .dlc = CANDEF_SWU_STATE_LENGTH,
-        .flags = CAN_FRAME_IDE,
-    };
-
-    memcpy(frame.data, data, CANDEF_SWU_STATE_LENGTH);
-
-    int ret = can_send(can.device, &frame, K_MSEC(100), swu_can_tx_callback, NULL);
-
-    return ret;
+    return send_swu_frame(CANDEF_SWU_MCU_INPUTS_FRAME_ID, CANDEF_SWU_MCU_INPUTS_LENGTH, data);
 }
 
-#if defined(CANDEF_SWU_TIME_FRAME_ID)
-int can_send_swu_time()
+int can_send_swu_lcu_inputs()
 {
-    struct candef_swu_time_t swu_time;
-    uint8_t time_data[CANDEF_SWU_TIME_LENGTH] = { 0 };
+    struct candef_swu_lcu_inputs_t swu_lcu_inputs = { 0 };
+    uint8_t data[CANDEF_SWU_LCU_INPUTS_LENGTH] = { 0 };
+    int ret;
 
-    swu_time.total_time_ms = time_g.total_ms;
-    swu_time.lap_time_ms = time_g.current_lap_ms;
+    k_mutex_lock(&mcu_inputs_mutex, K_FOREVER);
+    swu_lcu_inputs = lcu_inputs_state;
+    k_mutex_unlock(&mcu_inputs_mutex);
 
-    candef_swu_time_pack(time_data, &swu_time, sizeof(time_data));
+    ret = candef_swu_lcu_inputs_pack(data, &swu_lcu_inputs, sizeof(data));
+    if (ret < 0) {
+        return ret;
+    }
 
-    struct can_frame time_frame = {
-        .id = CANDEF_SWU_TIME_FRAME_ID,
-        .dlc = CANDEF_SWU_TIME_LENGTH,
-        .flags = CAN_FRAME_IDE,
-    };
-
-    memcpy(time_frame.data, time_data, CANDEF_SWU_TIME_LENGTH);
-
-    int ret = can_send(can.device, &time_frame, K_MSEC(100), swu_can_tx_callback, NULL);
-
-    return ret;
+    return send_swu_frame(CANDEF_SWU_LCU_INPUTS_FRAME_ID, CANDEF_SWU_LCU_INPUTS_LENGTH, data);
 }
-#endif
 
 static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
 
@@ -133,39 +169,32 @@ static void swu_can_tx_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p2);
     ARG_UNUSED(p3);
     //struct can_frame frame = {0};
-    LOG_INF("SWU state heartbeat can transmit thread started");
+    LOG_INF("SWU CAN heartbeat transmit thread started");
 
     while (1) {
         //k_msgq_get(&can_tx_msgq, &frame, K_FOREVER);
         read_all_buttons_from_gpio();
 
-        int ret = can_send_swu_state();
-#if defined(CANDEF_SWU_TIME_FRAME_ID)
-        can_send_swu_time();
-        ARG_UNUSED(ret);
-#else
-        ARG_UNUSED(ret);
-#endif
-        /*if (ret < 0) {
-            LOG_ERR("SWU_STATE CAN send failed: %d", ret);
-            continue;
+        int ret = can_send_swu_status();
+        if (ret < 0) {
+            LOG_ERR("SWU_STATUS CAN send failed: %d", ret);
         }
 
-        if (k_sem_take(&can_tx_done_sem, K_MSEC(200)) != 0) {
-            LOG_ERR("CAN TX timeout");
-            continue;
+        ret = can_send_swu_mcu_inputs();
+        if (ret < 0) {
+            LOG_ERR("SWU_MCU_INPUTS CAN send failed: %d", ret);
         }
 
-        if (can_tx_result != 0) {
-            LOG_ERR("CAN TX error: %d", can_tx_result);
-            continue;
+        ret = can_send_swu_lcu_inputs();
+        if (ret < 0) {
+            LOG_ERR("SWU_LCU_INPUTS CAN send failed: %d", ret);
         }
-*/
-        LOG_INF("SWU_STATE sent via CAN succesfully");
+        LOG_INF("SWU heartbeat frames sent via CAN successfully");
         gpio_set(&can.tx_led);
         k_work_reschedule(&tx_led_off_work, K_MSEC(50));
 
-        k_msleep(MCU_INPUTS_HEARTBEAT_MS);
+        drain_tx_requests();
+        k_sem_take(&can_tx_request_sem, K_MSEC(SWU_CAN_HEARTBEAT_MS));
     }
 }
 
@@ -189,17 +218,7 @@ static void process_can_frame(const struct can_frame *frame)
         break;
     }
 
-/*   case CANDEF_MCU_ANALOG_POWERTRAIN_FRAME_ID: {
-        if (frame->dlc >= CANDEF_MCU_ANALOG_POWERTRAIN_LENGTH) {
-           struct candef_mcu_analog_powertrain_t dst_p;
-            candef_mcu_analog_powertrain_unpack(&dst_p, frame->data, frame->dlc);
-
-            k_mutex_lock(&can_data_mutex, K_FOREVER);
-            display_data.sc_voltage = dst_p.supercapacitor_voltage;
-            k_mutex_unlock(&can_data_mutex);
-        }
-        break;*/
-	case CANDEF_MCU_ANALOG_FUEL_CELL_FRAME_ID: {
+    case CANDEF_MCU_ANALOG_FUEL_CELL_FRAME_ID: {
         if (frame->dlc >= CANDEF_MCU_ANALOG_FUEL_CELL_LENGTH) {
            struct candef_mcu_analog_fuel_cell_t dst_p;
             candef_mcu_analog_fuel_cell_unpack(&dst_p, frame->data, frame->dlc);
@@ -255,7 +274,6 @@ void swu_can_init() {
 
     k_mutex_init(&can_data_mutex);
 
-#if VEHICLE_TYPE == HYDROS
     k_tid_t can_tx_tid = k_thread_create(
         &swu_can_tx_thread_data,
         swu_can_tx_thread_stack_area,
@@ -269,7 +287,6 @@ void swu_can_init() {
         K_NO_WAIT);
 
     k_thread_name_set(can_tx_tid, "can_tx");
-#endif
 
     k_tid_t can_process_rx_data_tid = k_thread_create(
         &swu_can_process_rx_data_thread_data,
