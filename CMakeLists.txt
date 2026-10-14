@@ -41,24 +41,25 @@ target_sources(app PRIVATE
         src/steering_wheel_inputs.c
         src/steering_wheel_can.c
         src/steering_wheel_display.c
-        peripherals/can.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/can.c
 #        peripherals/can_dfu.c
-        peripherals/gpio.c
-        peripherals/adc.c
-        peripherals/pwm.c
-        peripherals/counter.c
-        peripherals/uart.c
-        peripherals/rs485.c
-        peripherals/status_led.c
-        can-definitions/candef.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/gpio.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/adc.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/pwm.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/counter.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/uart.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/rs485.c
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/status_led.c
+        ${CMAKE_SOURCE_DIR}/../modules/can-definitions/candef.c
         ui/ui.c
         ui/screens.c
         ui/styles.c
 )
 
 target_include_directories(app PRIVATE
-        peripherals
-        can-definitions
+        ${CMAKE_SOURCE_DIR}/../modules/can-definitions
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals
+        ${CMAKE_SOURCE_DIR}/../modules/peripherals/include
         src
         ui
 )
